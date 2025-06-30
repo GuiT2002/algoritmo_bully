@@ -1,5 +1,7 @@
 # Trabalho Prático de Sistemas Distribuídos: Algoritmo de Eleição Bully
 
+Grupo: Guilherme Trajano, Ítalo Silva e Maurício Ronzani
+
 ## 1. Descrição da Proposta
 
 Este trabalho implementa o **Algoritmo de Eleição de Líder de Bully** em um sistema distribuído simulado. A aplicação foi desenvolvida em Python 3 e demonstra como um conjunto de processos autônomos pode eleger um novo processo coordenador quando o líder atual falha ou quando um novo processo de maior prioridade entra no sistema.
