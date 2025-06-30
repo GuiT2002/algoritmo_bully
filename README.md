@@ -1,115 +1,92 @@
-# Algoritmo de Eleição - Algoritmo de Bully
+# Trabalho Prático de Sistemas Distribuídos: Algoritmo de Eleição Bully
 
-1. Proposta do Trabalho
-Este projeto consiste na implementação em Python do Algoritmo de Bully. O objetivo é simular um sistema distribuído onde múltiplos processos independentes podem se comunicar e, na ausência de um líder (coordenador), são capazes de eleger um novo de forma autônoma. O critério de eleição é o Identificador de Processo (PID), onde o processo com o maior PID assume a liderança.
+## 1. Descrição da Proposta
 
-O sistema demonstra conceitos de descoberta de falhas (via heartbeat), comunicação entre processos (via sockets) e tomada de decisão descentralizada.
+Este trabalho implementa o **Algoritmo de Eleição de Líder de Bully** em um sistema distribuído simulado. A aplicação foi desenvolvida em Python 3 e demonstra como um conjunto de processos autônomos pode eleger um novo processo coordenador quando o líder atual falha ou quando um novo processo de maior prioridade entra no sistema.
 
-2. Arquitetura
-A arquitetura do sistema é descentralizada (peer-to-peer). Não existe uma entidade central que gerencia o estado ou a comunicação. Cada processo na rede é um nó autônomo e igualitário.
+A arquitetura é **descentralizada (peer-to-peer)**, onde cada processo é um nó independente que se comunica com os outros através de Sockets TCP/IP em uma rede local (`localhost`). Cada nó é executado como uma instância separada de um mesmo script, diferenciado por argumentos de linha de comando.
 
-Embora a arquitetura seja descentralizada, cada processo individualmente opera com um modelo dual:
+## 2. Requisitos Funcionais e Mensagens
 
-Servidor: Cada processo possui uma thread que escuta continuamente em uma porta TCP específica, aguardando mensagens de outros processos.
+Cada processo no sistema é um nó funcional que atua tanto enviando requisições quanto respondendo a elas.
 
-Cliente: Para se comunicar, um processo atua como cliente, estabelecendo conexões com os servidores dos outros processos para enviar mensagens.
+### Identificação dos Processos
 
-3. Requisitos Funcionais e Protocolo de Mensagens
-Requisitos de um Processo
-Identificação: Cada processo é unicamente identificado por um ID de processo (pid) inteiro.
+-   **Process ID (PID):** Cada processo é unicamente identificado por um ID inteiro. O PID determina a "força" do processo no algoritmo de eleição (quanto maior o PID, maior a prioridade).
+-   **Endereço:** Cada processo possui um endereço de `host:porta` onde escuta por conexões.
 
-Descoberta de Falha: Cada processo monitora a saúde do coordenador atual através de mensagens de HEARTBEAT. Se o coordenador não responder, o processo assume uma falha.
+### Tipos de Mensagens
 
-Início de Eleição: Um processo inicia uma eleição se descobre que o coordenador falhou ou se, ao entrar na rede, não conhece nenhum coordenador.
+A comunicação é feita através de mensagens no formato JSON. Os tipos de mensagens trocadas são:
 
-Participação em Eleição: Um processo deve ser capaz de responder a mensagens de eleição e, se tiver um pid maior, iniciar sua própria eleição.
+-   **`ELEICAO`**: Enviada por um processo para todos os outros com PID superior ao seu para iniciar uma eleição.
+    -   Exemplo: `{'tipo': 'ELEICAO', 'remetente_pid': 1}`
+-   **`RESPOSTA`** (OK): Enviada em resposta a uma mensagem `ELEICAO` por um processo de PID superior, indicando que ele está ativo e irá assumir o processo de eleição.
+    -   Exemplo: `{'tipo': 'RESPOSTA', 'remetente_pid': 2}`
+-   **`COORDENADOR`**: Enviada pelo processo que venceu a eleição para todos os outros processos, anunciando-se como o novo líder. Esta mensagem também é usada por um coordenador estabelecido para anular uma eleição iniciada por um processo de PID inferior.
+    -   Exemplo: `{'tipo': 'COORDENADOR', 'coordenador_pid': 4, 'remetente_pid': 4}`
+-   **`HEARTBEAT`**: Enviada periodicamente por processos não-coordenadores para o líder atual para verificar se ele ainda está ativo.
+    -   Exemplo: `{'tipo': 'HEARTBEAT', 'remetente_pid': 1}`
+-   **`HEARTBEAT_ACK`**: Resposta enviada pelo coordenador para confirmar que está ativo.
+    -   Exemplo: `{'tipo': 'HEARTBEAT_ACK'}`
 
-Liderança: Um processo deve ser capaz de se declarar o novo coordenador se vencer uma eleição e notificar todos os outros processos.
+## 3. Arquitetura e Comunicação
 
-Protocolo de Mensagens
-As mensagens são trocadas no formato JSON via TCP. Os seguintes tipos de mensagens são utilizados:
+O sistema simula uma arquitetura peer-to-peer. Não existe um servidor central; cada processo é um par que executa a mesma lógica e pode tanto iniciar comunicação (atuando como cliente) quanto receber comunicação (atuando como servidor).
 
-Tipo da Mensagem
-
-Descrição
-
-ELEICAO
-
-Enviada por um processo para todos os processos com pid maior que o seu, para iniciar uma eleição.
-
-RESPOSTA
-
-Resposta a uma mensagem de ELEICAO, enviada por um processo de pid maior para indicar que está ativo.
-
-COORDENADOR
-
-Mensagem de broadcast enviada pelo vencedor da eleição para anunciar a todos que é o novo líder.
-
-HEARTBEAT
-
-Enviada periodicamente para o coordenador para verificar se ele ainda está ativo.
+-   **Modelo de Threads:**
+    1.  **Thread Principal:** Inicia o processo e os demais threads.
+    2.  **Thread de Servidor:** Roda em um loop infinito, escutando na porta designada pelo processo. A cada nova conexão, uma nova thread de curta duração é criada para lidar com a mensagem recebida, evitando que o servidor bloqueie.
+    3.  **Thread de Monitoramento:** Roda em um loop, enviando `HEARTBEAT`s para o coordenador em intervalos regulares para detecção de falhas.
 
 
-Exportar para as Planilhas
-4. Comunicação entre Processos
-A comunicação é realizada via Sockets TCP/IP sobre a interface de loopback (127.0.0.1).
+## 4. Execução da Aplicação
 
-Cada instância do processo processo.py abre um socket de servidor em uma porta única para receber conexões. A troca de mensagens é concorrente, utilizando threads para que o recebimento de uma mensagem não bloqueie a lógica principal do processo.
+### Requisitos
 
-Diagrama de Sequência: Falha do Líder e Nova Eleição
-O diagrama abaixo ilustra o fluxo de comunicação quando o Processo 1 detecta uma falha no Coordenador (Processo 4) e uma nova eleição é realizada, resultando na vitória do Processo 3.
+-   Python 3.x
 
-Participantes: P1, P2, P3 (Novo Líder), P4 (Líder Antigo - Falha)
+### Como Executar
 
-1. P1 --> P4: Envia HEARTBEAT.
-2. P4 --x P1: Sem resposta (timeout).
-3. P1: Detecta falha do líder e inicia eleição.
-4. P1 --> P2: Envia mensagem ELEICAO.
-5. P2 --> P1: Envia mensagem RESPOSTA (OK).
-6. P2: Inicia sua própria eleição.
-7. P2 --> P3: Envia mensagem ELEICAO.
-8. P2 --> P4: Envia mensagem ELEICAO (falha).
-9. P1 --> P3: Envia mensagem ELEICAO.
-10. P3 --> P2: Envia mensagem RESPOSTA (OK).
-11. P3 --> P1: Envia mensagem RESPOSTA (OK).
-12. P3: Inicia sua própria eleição.
-13. P3 --> P4: Envia mensagem ELEICAO (falha).
-14. P3: Não recebe RESPOSTA de PIDs maiores. Declara-se vencedor.
-15. P3 --> P1: Envia mensagem COORDENADOR.
-16. P3 --> P2: Envia mensagem COORDENADOR.
-5. Descrição do Serviço e Execução
-O serviço é implementado integralmente no script processo.py. Para simular o sistema distribuído, múltiplas instâncias deste script são executadas, cada uma representando um nó.
+1.  Abra um terminal para cada processo que deseja simular na rede.
+2.  Execute o script `processo.py` em cada terminal, fornecendo os argumentos necessários.
 
-Como Executar
-Abra um terminal para cada processo que deseja simular.
+**Argumentos de Linha de Comando:**
 
-Utilize o seguinte comando para iniciar cada processo, substituindo os valores apropriados. A lista de --processos deve ser idêntica para todas as instâncias.
+-   `--pid`: O ID único do processo.
+-   `--porta`: A porta de rede para o processo.
+-   `--processos`: A lista completa de todos os processos na rede, no formato `pid:host:porta`.
 
-Bash
+**Exemplo para uma rede com 3 processos:**
 
-python processo.py --pid <ID_DO_PROCESSO> --porta <PORTA_DO_PROCESSO> --processos <LISTA_DE_TODOS_OS_PROCESSOS>
-Exemplo com 3 processos:
-Terminal 1:
+-   **Terminal 1 (Processo 1):**
+    ```bash
+    python processo.py --pid 1 --porta 5001 --processos 1:127.0.0.1:5001 2:127.0.0.1:5002 3:127.0.0.1:5003
+    ```
+-   **Terminal 2 (Processo 2):**
+    ```bash
+    python processo.py --pid 2 --porta 5002 --processos 1:127.0.0.1:5001 2:127.0.0.1:5002 3:127.0.0.1:5003
+    ```
+-   **Terminal 3 (Processo 3):**
+    ```bash
+    python processo.py --pid 3 --porta 5003 --processos 1:127.0.0.1:5001 2:127.0.0.1:5002 3:127.0.0.1:5003
+    ```
 
-Bash
+### Como Testar a Lógica de Eleição
 
-python processo.py --pid 1 --porta 5001 --processos 1:127.0.0.1:5001 2:127.0.0.1:5002 3:127.0.0.1:5003
-Terminal 2:
+1.  **Eleição Inicial:** Inicie todos os processos. Observe nos logs que o processo com o maior PID (no exemplo, P3) vencerá a eleição inicial e se anunciará como coordenador.
+2.  **Falha do Coordenador:** Encerre o processo coordenador (P3) pressionando `Ctrl + C` em seu terminal.
+3.  **Nova Eleição:** Observe os logs dos processos restantes (P1 e P2). Após um tempo (10 segundos, o intervalo do heartbeat), eles detectarão a falha do líder e iniciarão uma nova eleição.
+4.  **Novo Líder:** O processo com o maior PID entre os remanescentes (P2) vencerá a eleição e se anunciará como o novo coordenador.
+5.  **Retorno do Processo "Bully":** Reinicie o processo P3. Ao entrar na rede, ele iniciará uma eleição, "intimidará" o líder atual (P2) e retomará sua posição como coordenador.
 
-Bash
+## 5. Demonstrações do Código-Fonte
 
-python processo.py --pid 2 --porta 5002 --processos 1:127.0.0.1:5001 2:127.0.0.1:5002 3:127.0.0.1:5003
-Terminal 3:
+### Definição dos Processos via Argumentos
 
-Bash
+O ponto de entrada da aplicação utiliza a biblioteca `argparse` para configurar cada processo de forma única.
 
-python processo.py --pid 3 --porta 5003 --processos 1:127.0.0.1:5001 2:127.0.0.1:5002 3:127.0.0.1:5003
-6. Demonstrações de Código
-Definição e Inicialização dos Processos
-O main do script utiliza argparse para receber os parâmetros do processo e de toda a rede, inicializando uma instância da classe Processo.
-
-Python
-
+```python
 def main():
     parser = argparse.ArgumentParser(description="Implementação do Algoritmo de Bully.")
     parser.add_argument("--pid", type=int, required=True, help="ID deste processo.")
@@ -122,15 +99,8 @@ def main():
 
     processo = Processo(args.pid, args.porta, mapa_processos)
     processo.iniciar()
-
-    while True:
-        try:
-            time.sleep(1)
-        except KeyboardInterrupt:
-            print(f"\n[PID: {args.pid}] Processo encerrado.")
-            break
-Envio de Mensagens
-A função enviar_mensagem encapsula a lógica de cliente: criar um socket, conectar-se a um par, serializar e enviar a mensagem em JSON, e aguardar uma resposta.
+Envio de Mensagens (Ação de Cliente)
+A função enviar_mensagem encapsula a lógica de se conectar a outro processo e enviar uma mensagem, tratando timeouts e erros de conexão.
 
 Python
 
@@ -144,17 +114,20 @@ def enviar_mensagem(self, destino_pid: int, mensagem: dict) -> Optional[Dict[str
             s.connect((host, porta))
             s.sendall(json.dumps(mensagem).encode())
             
-            if mensagem.get('tipo') in ['ELEICAO', 'HEARTBEAT']:
-                dados = s.recv(1024)
-                if dados:
-                    return json.loads(dados.decode())
-            return {'tipo': 'ACK'}
+            # Coordenador não espera resposta, apenas envia
+            if mensagem.get('tipo') == 'COORDENADOR':
+                 return {'tipo': 'ACK'}
+
+            dados = s.recv(1024)
+            if dados:
+                return json.loads(dados.decode())
+            return None # Conexão fechada sem resposta
     except (socket.timeout, ConnectionRefusedError):
         return None
     except (json.JSONDecodeError, ConnectionResetError):
         return None
-Recepção e Tratamento de Mensagens
-A função lidar_com_cliente é executada em uma thread para cada conexão recebida. Ela decodifica a mensagem JSON e, com base no tipo, direciona para a ação apropriada, como defender a posição de coordenador ou responder a uma eleição.
+Recepção e Tratamento de Mensagens (Ação de Servidor)
+A função lidar_com_cliente é executada em uma thread para cada conexão recebida. Ela decodifica a mensagem e age de acordo com seu tipo. O trecho abaixo mostra a lógica crucial de como um Coordenador defende sua posição.
 
 Python
 
@@ -168,20 +141,23 @@ def lidar_com_cliente(self, cliente_socket: socket.socket):
 
         if tipo_msg == 'ELEICAO':
             remetente_pid = mensagem.get('remetente_pid')
+            
             with self.lock:
+                # Se eu sou o coordenador, eu anulo a eleição imediatamente.
                 if self.pid == self.coordenador:
                     self._log(f"Já sou o coordenador. Rejeitando eleição iniciada por {remetente_pid}.")
                     resposta = {'tipo': 'COORDENADOR', 'coordenador_pid': self.pid, 'remetente_pid': self.pid}
                     cliente_socket.sendall(json.dumps(resposta).encode())
                     return
 
+            # Se não sou o coordenador, sigo o fluxo normal do Bully.
             self._log(f"[RECV] Mensagem de ELEIÇÃO do processo {remetente_pid}")
             resposta = {'tipo': 'RESPOSTA', 'remetente_pid': self.pid}
             cliente_socket.sendall(json.dumps(resposta).encode())
             self.iniciar_eleicao()
 
-        elif tipo_msg == 'COORDENADOR':
-            self.lidar_com_coordenador(mensagem.get('coordenador_pid'))
-        # ...
+        # ... outros tipos de mensagem ...
+    
     finally:
         cliente_socket.close()
+
