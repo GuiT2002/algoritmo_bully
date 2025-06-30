@@ -126,9 +126,11 @@ def enviar_mensagem(self, destino_pid: int, mensagem: dict) -> Optional[Dict[str
         return None
     except (json.JSONDecodeError, ConnectionResetError):
         return None
-Recepção e Tratamento de Mensagens (Ação de Servidor)
-A função lidar_com_cliente é executada em uma thread para cada conexão recebida. Ela decodifica a mensagem e age de acordo com seu tipo. O trecho abaixo mostra a lógica crucial de como um Coordenador defende sua posição.
 ```
+
+###Recepção e Tratamento de Mensagens (Ação de Servidor)
+A função lidar_com_cliente é executada em uma thread para cada conexão recebida. Ela decodifica a mensagem e age de acordo com seu tipo. O trecho abaixo mostra a lógica crucial de como um Coordenador defende sua posição.
+
 ```Python
 
 def lidar_com_cliente(self, cliente_socket: socket.socket):
