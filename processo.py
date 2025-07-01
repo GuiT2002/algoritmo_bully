@@ -57,7 +57,6 @@ class Processo:
             if tipo_msg == 'ELEICAO':
                 remetente_pid = mensagem.get('remetente_pid')
                 
-                # <--- MUDANÇA CRÍTICA: Lógica de defesa do Coordenador
                 with self.lock:
                     # Se eu sou o coordenador, eu anulo a eleição imediatamente.
                     if self.pid == self.coordenador:
@@ -109,11 +108,10 @@ class Processo:
                 resposta = self.enviar_mensagem(pid, {'tipo': 'ELEICAO', 'remetente_pid': self.pid})
                 
                 if resposta:
-                    # <--- MUDANÇA CRÍTICA: Aceita a anulação da eleição por um coordenador
                     if resposta.get('tipo') == 'COORDENADOR':
                         self._log(f"Eleição anulada. Processo {resposta.get('coordenador_pid')} já é o coordenador.")
                         self.lidar_com_coordenador(resposta.get('coordenador_pid'))
-                        return # Aborta a eleição imediatamente
+                        return # Aborta a eleição 
                     
                     if resposta.get('tipo') == 'RESPOSTA':
                         self._log(f"[RECV] Mensagem de RESPOSTA (OK) do processo {pid}")
